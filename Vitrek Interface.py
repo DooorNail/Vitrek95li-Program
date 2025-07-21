@@ -189,7 +189,8 @@ class TestLogger:
 # Instrument Communication with Retries
 # -----------------------------
 class Vitrek95LI:
-    def __init__(self, ip="169.254.107.36", port=10733, local_ip="192.168.1.10",timeout=0.1):
+    # def __init__(self, ip="169.254.107.36", port=10733, local_ip="192.168.1.10",timeout=0.1):
+    def __init__(self, ip="169.254.107.36", port=10733, local_ip="169.254.202.17",timeout=0.1):
         self.ip = ip
         self.port = port
         self.local_ip = local_ip
@@ -437,11 +438,11 @@ def main():
     instrument = Vitrek95LI()
     if not instrument.connect():
         input(Fore.RED + "[FATAL] Could not connect to instrument. Exiting.")
-        # return
+        return
     if not instrument.check_connection():
         instrument.close()
         input(Fore.RED + "[FATAL] Instrument check failed. Exiting.")
-        # return
+        return
 
     try:
         config = select_config(configs)
