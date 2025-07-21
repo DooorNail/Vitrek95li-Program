@@ -40,9 +40,9 @@ SPLASH_SCREEN = [
 def disp_splash_screen():
     print("\n"*2)
     for line in SPLASH_SCREEN:
-        print(line.replace("@","\x1b[2m\x1b[36m").replace("$","\x1b[0m\x1b[1m\x1b[35m"))
+        print(" "*15+line.replace("@","\x1b[2m\x1b[36m").replace("$","\x1b[0m\x1b[1m\x1b[35m"))
         
-    print(Fore.MAGENTA + " "*2+"Vitrek 95LI DCW Program Interface\n")
+    print(Fore.MAGENTA + " "*18+"Vitrek 95LI DCW Program Interface\n")
 
 # -----------------------------
 # Graceful Shutdown Handling
@@ -189,7 +189,6 @@ class TestLogger:
 # Instrument Communication with Retries
 # -----------------------------
 class Vitrek95LI:
-    # def __init__(self, ip="169.254.107.36", port=10733, local_ip="192.168.1.10",timeout=0.1):
     def __init__(self, ip="169.254.107.36", port=10733, local_ip="169.254.202.17",timeout=0.1):
         self.ip = ip
         self.port = port
@@ -206,7 +205,7 @@ class Vitrek95LI:
                 self.sock.settimeout(self.timeout)
                 self.sock.connect((self.ip, self.port))
 
-                print(Fore.GREEN + "[INFO] Connected to Vitrek 95LI at", self.ip)
+                print(Fore.CYAN + "[INFO] Connected to Vitrek 95LI at", self.ip)
                 return True
             except Exception as e:
                 print(Fore.RED + f"[ERROR] Connection attempt {attempt+1} failed: {e}")
@@ -254,7 +253,7 @@ class Vitrek95LI:
         """Basic command to verify instrument is responsive."""
         resp = self.query("*IDN?")
         if resp:
-            print(Fore.GREEN + f"[INFO] Instrument ID: {resp}")
+            print(Fore.CYAN + f"[INFO] Instrument ID: {resp}")
             return True
         print(Fore.RED + "[ERROR] No response from instrument.")
         return False
@@ -274,7 +273,7 @@ class TestRunnerThread(threading.Thread):
         self.duration = 0
 
     def run(self):
-        print(Fore.CYAN + f"[INFO] Test thread started for test ID {self.test_id}")
+##        print(Fore.CYAN + f"[INFO] Test thread started for test ID {self.test_id}")
         max_duration = self.config.ramp_time + self.config.dwell_time + 10  # extra 10s buffer
         elapsed = 0
         last_measurement = 0
@@ -293,7 +292,7 @@ class TestRunnerThread(threading.Thread):
                 time.sleep(0.05)
 
                 if self.instrument.query("RUN?") == "1":
-                    print(Fore.GREEN + f"[INFO] Test Sequence started for test ID {self.test_id}")
+##                    print(Fore.BLUE + f"[INFO] Test sequence started for test ID {self.test_id}")
                     break
                 else:
                     print(Fore.RED + "[ERROR] Failed to start test.")
@@ -315,7 +314,7 @@ class TestRunnerThread(threading.Thread):
                 last_measurement = time.time()
                 
                 if test_running != "1":
-                    print(Fore.CYAN + "\n[INFO] Test no longer running")
+##                    print(Fore.CYAN + "\n[INFO] Test no longer running")
                     summary_data = self.instrument.query("STEPRSLT?,1").split(",")
                     # print(summary_data)
                     
@@ -370,7 +369,7 @@ class TestRunnerThread(threading.Thread):
 # -----------------------------
 def select_config(configs):
     while True:
-        print(Fore.CYAN + "\n"*2 + "=" * 90 + "\n"
+        print(Style.BRIGHT + Fore.CYAN + "\n"*2 + "=" * 90 + "\n"
               + "     TEST CONFIGURATIONS     ".center(90, "~") + "\n"
               + "=" * 90)        
         
@@ -383,7 +382,7 @@ def select_config(configs):
         if choice.isdigit():
             idx = int(choice) - 1
             if 0 <= idx < len(configs):
-                print(f"{Fore.GREEN}Selected config: {configs[idx].name}")
+                print(f"{Fore.CYAN}Selected config: {configs[idx].name}")
                 return configs[idx]
         print(Fore.RED + "Invalid selection. Please enter a valid number.")
 
@@ -438,11 +437,11 @@ def main():
     instrument = Vitrek95LI()
     if not instrument.connect():
         input(Fore.RED + "[FATAL] Could not connect to instrument. Exiting.")
-        return
+        # return
     if not instrument.check_connection():
         instrument.close()
         input(Fore.RED + "[FATAL] Instrument check failed. Exiting.")
-        return
+        # return
 
     try:
         config = select_config(configs)
