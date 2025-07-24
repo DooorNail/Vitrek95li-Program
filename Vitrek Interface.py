@@ -463,12 +463,12 @@ def main():
 
     instrument = Vitrek95LI(ip, port, local_ip, timeout) # Pass setup config to Vitrek95LI
     if not instrument.connect():
-        input(Fore.RED + "[FATAL] Could not connect to instrument. Exiting.")
-        # return
+        input(Fore.RED + "[FATAL] Could not connect to instrument. Make sure it's turned on and connected. Exiting.")
+        return
     if not instrument.check_connection():
         instrument.close()
         input(Fore.RED + "[FATAL] Instrument check failed. Exiting.")
-        # return
+        return
 
     try:
         config = select_config(configs)
