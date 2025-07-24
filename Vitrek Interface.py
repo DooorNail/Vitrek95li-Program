@@ -16,6 +16,7 @@ init(autoreset=True)
 CONFIG_DIR = "Test Configs"
 RAW_DATA_DIR = "Data/Raw"
 SUMMARY_DIR = "Data/Summaries"
+SETUP_CONFIG_PATH = "setup_config.ini" # Define path for setup config
 
 os.makedirs(CONFIG_DIR, exist_ok=True)
 os.makedirs(RAW_DATA_DIR, exist_ok=True)
@@ -127,6 +128,22 @@ on_fail = ABORT
         )
         configs.append(cfg)
     return configs
+
+# -----------------------------
+# Load Setup Configuration
+# -----------------------------
+def load_setup_config(config_path=SETUP_CONFIG_PATH):
+    cp = configparser.ConfigParser()
+    try:
+        cp.read(config_path)
+        ip = cp.get("Vitrek", "ip", fallback="169.254.107.36")
+        port = cp.getint("Vitrek", "port", fallback=10733)
+        local_ip = cp.get("Vitrek", "local_ip", fallback="169.254.202.17")
+        timeout = cp.getfloat("Vitrek", "timeout", fallback=0.1)
+        return ip, port, local_ip, timeout
+    except (configparser.Error, FileNotFoundError) as e:
+        print(Fore.RED + f"[ERROR] Could not load setup config from {config_path}: {e}")
+        return "169.254.107.36", 10733, "169.254.202.17", 0.1  # Return defaults
 
 # -----------------------------
 # Logger for Test Data
@@ -433,8 +450,9 @@ def main():
     disp_splash_screen()    
 
     configs = load_configs()
+    ip, port, local_ip, timeout = load_setup_config() # Load setup config
 
-    instrument = Vitrek95LI()
+    instrument = Vitrek95LI(ip, port, local_ip, timeout) # Pass setup config to Vitrek95LI
     if not instrument.connect():
         input(Fore.RED + "[FATAL] Could not connect to instrument. Exiting.")
         # return
