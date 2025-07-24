@@ -166,7 +166,7 @@ class TestLogger:
 
     def _generate_filename(self, test_id, cfg_name):
         base = os.path.join(RAW_DATA_DIR, f"{test_id} - {cfg_name}")
-        i = 0
+        i = 1
         fname = f"{base}.csv"
         while os.path.exists(fname):
             i += 1
@@ -382,7 +382,7 @@ class TestRunnerThread(threading.Thread):
 
         self.duration = time.time() - start_time
         self.logger.close()
-        print(Fore.CYAN + f"\r[INFO] Test thread for test ID {self.test_id} finished with result: {self.result}       ")
+        print(Fore.CYAN + f"\r[INFO] Test thread for test ID {self.test_id} finished with result: {self.result}                ")
 
     def abort(self):
         print(Fore.MAGENTA + "[INFO] Abort signal received.")
