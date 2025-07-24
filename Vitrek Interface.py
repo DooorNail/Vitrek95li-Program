@@ -140,24 +140,28 @@ def load_setup_config(config_path=SETUP_CONFIG_PATH):
         port = cp.getint("Vitrek", "port", fallback=10733)
         local_ip = cp.get("Vitrek", "local_ip", fallback="169.254.202.17")
         timeout = cp.getfloat("Vitrek", "timeout", fallback=0.1)
-        return ip, port, local_ip, timeout
+        delimiter = cp.get("CSV", "delimiter", fallback=",").strip('"')
+        decimal_point = cp.get("CSV", "decimal_point", fallback=".").strip('"')
+        return ip, port, local_ip, timeout, delimiter, decimal_point
     except (configparser.Error, FileNotFoundError) as e:
         print(Fore.RED + f"[ERROR] Could not load setup config from {config_path}: {e}")
-        return "169.254.107.36", 10733, "169.254.202.17", 0.1  # Return defaults
+        return "169.254.107.36", 10733, "169.254.202.17", 0.1, ",", "."  # Return defaults
 
 # -----------------------------
 # Logger for Test Data
 # -----------------------------
 class TestLogger:
-    def __init__(self, test_id: str, cfg_name: str):
+    def __init__(self, test_id: str, cfg_name: str, delimiter: str, decimal_point: str):
         self.cfg_name = cfg_name
         self.test_id = test_id
         self.filename = self._generate_filename(test_id, cfg_name)
         self.file = open(self.filename, 'w', newline='')
-        self.writer = csv.writer(self.file)
+        self.writer = csv.writer(self.file, delimiter=delimiter)
         self.writer.writerow(['Time', 'Voltage', 'Current'])
         self.max_v = 0.0
         self.max_i = 0.0
+        self.decimal_point = decimal_point
+        self.delimiter = delimiter
         self.lock = threading.Lock()
 
     def _generate_filename(self, test_id, cfg_name):
@@ -170,8 +174,11 @@ class TestLogger:
         return fname
 
     def log(self, t, v, i):
+        t_str = str(t).replace(".", self.decimal_point)  # Replace '.' with configured decimal point
+        v_str = str(v).replace(".", self.decimal_point)  
+        i_str = str(i).replace(".", self.decimal_point)          
         with self.lock:
-            self.writer.writerow([t, v, i])
+            self.writer.writerow([t_str, v_str, i_str])
         self.max_v = max(self.max_v, v)
         self.max_i = max(self.max_i, i)
 
@@ -185,19 +192,20 @@ class TestLogger:
             'Test_Config': self.cfg_name,
             'Test_ID': self.test_id,
             'Test_Result': result,
-            'Max_Voltage (V)': self.max_v,
-            'Max_Current (A)': self.max_i,
+            'Max_Voltage (V)': str(self.max_v).replace(".", self.decimal_point),
+            'Max_Current (A)': str(self.max_i).replace(".", self.decimal_point),
             'Duration (s)': round(duration, 2)
         }
         
         date_str = date.today().strftime("%Y-%m-%d")
         fname = os.path.join(SUMMARY_DIR, f"TestSummaries_{date_str}.csv")
-        new_file = not os.path.exists(fname)
-        with open(fname, 'a', newline='') as f:
-            writer = csv.DictWriter(f, fieldnames=list(summary.keys()))
-            if new_file:
-                writer.writeheader()
-            writer.writerow(summary)
+        with self.lock:
+            new_file = not os.path.exists(fname)
+            with open(fname, 'a', newline='') as f:
+                writer = csv.DictWriter(f, fieldnames=list(summary.keys()), delimiter=self.delimiter)
+                if new_file:
+                    writer.writeheader()
+                writer.writerow(summary)
         
         return summary
         
@@ -206,7 +214,7 @@ class TestLogger:
 # Instrument Communication with Retries
 # -----------------------------
 class Vitrek95LI:
-    def __init__(self, ip="169.254.107.36", port=10733, local_ip="169.254.202.17",timeout=0.1):
+    def __init__(self, ip, port, local_ip,timeout):
         self.ip = ip
         self.port = port
         self.local_ip = local_ip
@@ -279,12 +287,12 @@ class Vitrek95LI:
 # Test Thread that runs the DCW test sequence
 # -----------------------------
 class TestRunnerThread(threading.Thread):
-    def __init__(self, instrument: Vitrek95LI, config: DCWTestConfig, test_id: str):
+    def __init__(self, instrument: Vitrek95LI, config: DCWTestConfig, test_id: str, delimiter: str, decimal_point: str):
         super().__init__()
         self.instrument = instrument
         self.config = config
         self.test_id = test_id
-        self.logger = TestLogger(test_id, config.name)
+        self.logger = TestLogger(test_id, config.name, delimiter, decimal_point)
         self.abort_event = threading.Event()
         self.result = "UNKNOWN"
         self.duration = 0
@@ -450,7 +458,8 @@ def main():
     disp_splash_screen()    
 
     configs = load_configs()
-    ip, port, local_ip, timeout = load_setup_config() # Load setup config
+    ip, port, local_ip, timeout, delimiter, decimal_point = load_setup_config() # Load setup config
+
 
     instrument = Vitrek95LI(ip, port, local_ip, timeout) # Pass setup config to Vitrek95LI
     if not instrument.connect():
@@ -467,7 +476,7 @@ def main():
         while True:
             test_id = prompt_test_id()
 
-            running_test_thread = TestRunnerThread(instrument, config, test_id)
+            running_test_thread = TestRunnerThread(instrument, config, test_id, delimiter, decimal_point)
             running_test_thread.start()
 
             while running_test_thread.is_alive():
@@ -477,8 +486,8 @@ def main():
 
             print(Fore.GREEN + f"\nTest Summary:\n"
                   f"  Result: {summary['Test_Result']}\n"
-                  f"  Max Voltage: {summary['Max_Voltage (V)']:.2f} V\n"
-                  f"  Max Current: {summary['Max_Current (A)']*1e3:.4f} mA\n"
+                  f"  Max Voltage: {float(summary['Max_Voltage (V)'].replace(decimal_point, '.')):.2f} V\n"
+                  f"  Max Current: {float(summary['Max_Current (A)'].replace(decimal_point, '.'))*1e3:.4f} mA\n"
                   f"  Duration: {summary['Duration (s)']} seconds\n")
 
     finally:
